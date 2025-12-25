@@ -168,11 +168,14 @@
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-elasticsearch-rest-client</artifactId>
         </dependency>
+        <!-- Temporarily commented for separate frontend deployment -->
+        <!--
         <dependency>
             <groupId>io.quarkiverse.quinoa</groupId>
             <artifactId>quarkus-quinoa</artifactId>
             <version>${quinoa.version}</version>
         </dependency>
+        -->
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-math3</artifactId>

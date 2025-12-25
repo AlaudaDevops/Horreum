@@ -9,7 +9,7 @@
 
     <!-- This should be overridden in production by a system property -->
     <property name="horreum.db.secret" value="secret"/>
-    <property name="quarkus.datasource.username" value="appuser" />
+    <property name="quarkus.datasource.username" value="horreum" />
 
     <!-- Primary model -->
     <changeSet id="0" author="rvansa">
@@ -4708,7 +4708,7 @@
                     from backendconfig
                     where jsonb_path_exists(configuration, '$.apiKey')
                       AND configuration ->> 'apiKey' = ''
-                     AND not jsonb_path_exists(configuration, '$.username'))
+                     AND not jsonb_path_exists(configuration, '$.username')) as inner_config
                 )
                 as updated
             WHERE backendconfig.id = updated.id;
@@ -4752,7 +4752,7 @@
                             from backendconfig
                             where jsonb_path_exists(configuration, '$.username')
                         ) as rootConfig
-                    ) as updatedConfig)
+                    ) as updatedConfig) as middle_layer
                 ) as updated
             WHERE backendconfig.id = updated.id;
         </sql>
