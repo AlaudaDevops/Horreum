@@ -55,21 +55,32 @@ spec:
       - name: dockerconfig
 
     tasks:
-      # Task 1: 克隆代码
+      # Task 1: 克隆代码 (内联 Task)
       - name: git-clone
-        taskRef:
-          resolver: hub
+        taskSpec:
           params:
-            - name: catalog
-              value: alauda
-            - name: type
-              value: tekton
-            - name: kind
-              value: task
-            - name: name
-              value: git-clone
-            - name: version
-              value: "0.9"
+            - name: url
+              type: string
+            - name: revision
+              type: string
+          workspaces:
+            - name: output
+          steps:
+            - name: clone
+              image: build-harbor.alauda.cn/devops/tekton/pipeline/git-init:v0.40.2
+              script: |
+                #!/usr/bin/env sh
+                set -ex
+
+                # 克隆仓库
+                git clone "$(params.url)" "$(workspaces.output.path)"
+                cd "$(workspaces.output.path)"
+
+                # 切换到指定 revision
+                git checkout "$(params.revision)"
+
+                echo "Cloned $(params.url) at revision $(params.revision)"
+                git log -1 --oneline
         params:
           - name: url
             value: $(params.repo-url)
