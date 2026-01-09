@@ -134,6 +134,12 @@ spec:
 
   taskRunSpecs:
     - pipelineTaskName: prepare-build
+      podTemplate:
+        securityContext:
+          runAsUser: 0
+          runAsGroup: 0
+          fsGroup: 0
+          fsGroupChangePolicy: "OnRootMismatch"
       computeResources:
         limits:
           cpu: "4"
