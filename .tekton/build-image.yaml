@@ -71,7 +71,7 @@ spec:
         - pom.xml
 
     - name: prepare-tools-image
-      value: "build-harbor.alauda.cn/devops/maven:3.9-eclipse-temurin-17"
+      value: "docker.io/library/maven:3.9-eclipse-temurin-17"
 
     - name: prepare-command
       value: |
