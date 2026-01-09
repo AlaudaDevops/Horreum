@@ -78,9 +78,12 @@ spec:
         #!/bin/bash
         set -ex
 
+        # 设置 HOME 目录
+        export HOME=/root
+
         # 配置 Maven 镜像
-        mkdir -p ~/.m2
-        cat > ~/.m2/settings.xml << 'SETTINGS'
+        mkdir -p $HOME/.m2
+        cat > $HOME/.m2/settings.xml << 'SETTINGS'
         <settings>
           <mirrors>
             <mirror>
