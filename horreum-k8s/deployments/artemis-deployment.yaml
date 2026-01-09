@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: artemis
+  namespace: horreum
+  labels:
+    app: artemis
+    app.kubernetes.io/name: artemis
+    app.kubernetes.io/component: messaging
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: artemis
+  template:
+    metadata:
+      labels:
+        app: artemis
+    spec:
+      containers:
+        - name: artemis
+          image: quay.io/artemiscloud/activemq-artemis-broker:1.0.25
+          ports:
+            - containerPort: 5672
+              name: amqp
+            - containerPort: 8161
+              name: console
+          env:
+            - name: AMQ_USER
+              valueFrom:
+                secretKeyRef:
+                  name: artemis-secret
+                  key: AMQ_USER
+            - name: AMQ_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: artemis-secret
+                  key: AMQ_PASSWORD
+            - name: AMQ_ROLE
+              value: "admin"
+            - name: EXTRA_ARGS
+              value: "--role admin --name broker --allow-anonymous --force --no-autotune --mapped --no-fsync --relax-jolokia"
+          volumeMounts:
+            - name: broker-config
+              mountPath: /var/lib/artemis-instance/etc-override/broker.xml
+              subPath: broker.xml
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "1Gi"
+              cpu: "500m"
+          livenessProbe:
+            tcpSocket:
+              port: 5672
+            initialDelaySeconds: 60
+            periodSeconds: 10
+          readinessProbe:
+            tcpSocket:
+              port: 5672
+            initialDelaySeconds: 30
+            periodSeconds: 5
+      volumes:
+        - name: broker-config
+          configMap:
+            name: artemis-broker-config

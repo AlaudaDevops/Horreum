@@ -1,0 +1,37 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-config
+  namespace: horreum
+  labels:
+    app: postgres
+data:
+  # PostgreSQL 配置
+  postgresql.conf: |
+    listen_addresses = '*'
+    port = 5432
+    max_connections = 100
+    shared_buffers = 256MB
+    max_prepared_transactions = 100
+    max_pred_locks_per_transaction = 128
+    logging_collector = off
+    shared_preload_libraries = 'pg_stat_statements'
+    pg_stat_statements.track = all
+    row_security = on
+
+  # 初始化脚本 - 创建应用用户
+  init-users.sql: |
+    -- 创建应用用户 (受限权限，用于应用运行时)
+    DO $$
+    BEGIN
+      IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'appuser') THEN
+        CREATE ROLE appuser NOINHERIT LOGIN PASSWORD 'CHANGE_ME_APPUSER_PASS';
+      END IF;
+    END
+    $$;
+
+    -- 授权 schema 访问
+    GRANT USAGE ON SCHEMA public TO appuser;
+
+    -- 注意: 具体表权限由 Liquibase 迁移脚本管理
+    -- Horreum 启动时会自动运行迁移并设置权限
