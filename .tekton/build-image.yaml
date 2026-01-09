@@ -81,20 +81,6 @@ spec:
         # 设置 HOME 目录
         export HOME=/root
 
-        # 配置 Maven 镜像
-        mkdir -p $HOME/.m2
-        cat > $HOME/.m2/settings.xml << 'SETTINGS'
-        <settings>
-          <mirrors>
-            <mirror>
-              <id>nexus</id>
-              <mirrorOf>*</mirrorOf>
-              <url>https://build-nexus.alauda.cn/repository/maven-public/</url>
-            </mirror>
-          </mirrors>
-        </settings>
-        SETTINGS
-
         # 构建项目 (跳过测试，启用 Quinoa 打包前端)
         mvn clean package -DskipTests -DskipITs \
           -pl horreum-backend -am \
