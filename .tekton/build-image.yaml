@@ -141,7 +141,7 @@ spec:
         requests:
           cpu: "2"
           memory: 4Gi
-    - pipelineTaskName: image-build
+    - pipelineTaskName: build-push
       computeResources:
         limits:
           cpu: "4"
@@ -149,11 +149,3 @@ spec:
         requests:
           cpu: "2"
           memory: 2Gi
-    - pipelineTaskName: image-scan
-      computeResources:
-        limits:
-          cpu: "2"
-          memory: 2Gi
-        requests:
-          cpu: "1"
-          memory: 1Gi
