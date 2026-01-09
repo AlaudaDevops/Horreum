@@ -81,9 +81,12 @@ spec:
         # 设置 HOME 目录
         export HOME=/root
 
-        # 构建项目 (跳过测试，启用 Quinoa 打包前端)
+        # 先安装 API 模块
+        mvn clean install -DskipTests -DskipITs -pl horreum-api
+
+        # 构建 backend (启用 Quinoa 打包前端)
         mvn clean package -DskipTests -DskipITs \
-          -pl horreum-backend -am \
+          -pl horreum-backend \
           -Dquarkus.package.jar.type=fast-jar \
           -Dquarkus.quinoa=true
 
