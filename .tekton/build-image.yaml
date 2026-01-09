@@ -1,0 +1,225 @@
+apiVersion: tekton.dev/v1
+kind: PipelineRun
+metadata:
+  name: horreum-build-image
+  annotations:
+    # 推送到 main 或 local-dev-scripts 分支时自动触发
+    pipelinesascode.tekton.dev/on-push: "[main, local-dev-scripts]"
+    # PR 评论触发构建
+    pipelinesascode.tekton.dev/on-comment: "^/build-image$"
+    pipelinesascode.tekton.dev/cancel-in-progress: "true"
+    pipelinesascode.tekton.dev/max-keep-runs: "5"
+spec:
+  timeouts:
+    pipeline: 1h30m
+    tasks: 1h
+
+  taskRunTemplate:
+    podTemplate:
+      securityContext:
+        fsGroup: 65532
+        fsGroupChangePolicy: "OnRootMismatch"
+
+  taskRunSpecs:
+    - pipelineTaskName: build-and-push
+      computeResources:
+        limits:
+          cpu: "4"
+          memory: 8Gi
+        requests:
+          cpu: "2"
+          memory: 4Gi
+
+  pipelineSpec:
+    params:
+      - name: repo-url
+        type: string
+      - name: revision
+        type: string
+      - name: image-registry
+        type: string
+        default: "build-harbor.alauda.cn"
+      - name: image-group
+        type: string
+        default: "devops"
+      - name: image-name
+        type: string
+        default: "horreum"
+      - name: image-tag
+        type: string
+        default: "latest"
+
+    workspaces:
+      - name: source
+      - name: maven-cache
+      - name: dockerconfig
+
+    tasks:
+      # Task 1: 克隆代码
+      - name: git-clone
+        taskRef:
+          resolver: hub
+          params:
+            - name: catalog
+              value: alauda
+            - name: type
+              value: tekton
+            - name: kind
+              value: task
+            - name: name
+              value: git-clone
+            - name: version
+              value: "0.9"
+        params:
+          - name: url
+            value: $(params.repo-url)
+          - name: revision
+            value: $(params.revision)
+        workspaces:
+          - name: output
+            workspace: source
+
+      # Task 2: Maven 构建 + JIB 推送镜像
+      - name: build-and-push
+        runAfter:
+          - git-clone
+        taskSpec:
+          params:
+            - name: image-registry
+            - name: image-group
+            - name: image-name
+            - name: image-tag
+            - name: revision
+          workspaces:
+            - name: source
+            - name: maven-cache
+            - name: dockerconfig
+          results:
+            - name: IMAGE_URL
+              description: The full image URL
+          steps:
+            - name: maven-build-and-push
+              image: build-harbor.alauda.cn/devops/maven:3.9-eclipse-temurin-17
+              workingDir: $(workspaces.source.path)
+              env:
+                - name: MAVEN_OPTS
+                  value: "-Dmaven.repo.local=$(workspaces.maven-cache.path)/.m2/repository -Xmx4g"
+                - name: DOCKER_CONFIG
+                  value: $(workspaces.dockerconfig.path)
+              script: |
+                #!/bin/bash
+                set -ex
+
+                # 配置 Maven 镜像
+                mkdir -p ~/.m2
+                cat > ~/.m2/settings.xml << 'SETTINGS'
+                <settings>
+                  <mirrors>
+                    <mirror>
+                      <id>nexus</id>
+                      <mirrorOf>*</mirrorOf>
+                      <url>https://build-nexus.alauda.cn/repository/maven-public/</url>
+                    </mirror>
+                  </mirrors>
+                </settings>
+                SETTINGS
+
+                # 设置镜像参数
+                IMAGE_REGISTRY="$(params.image-registry)"
+                IMAGE_GROUP="$(params.image-group)"
+                IMAGE_NAME="$(params.image-name)"
+                IMAGE_TAG="$(params.image-tag)"
+                REVISION="$(params.revision)"
+
+                # 短 commit SHA
+                SHORT_SHA="${REVISION:0:7}"
+
+                echo "Building image: ${IMAGE_REGISTRY}/${IMAGE_GROUP}/${IMAGE_NAME}:${IMAGE_TAG}"
+
+                # 构建项目并推送镜像 (使用 Quarkus JIB)
+                mvn clean package -DskipTests -DskipITs \
+                  -pl horreum-backend -am \
+                  -Dquarkus.package.jar.type=fast-jar \
+                  -Dquarkus.quinoa.enabled=true \
+                  -Dquarkus.container-image.build=true \
+                  -Dquarkus.container-image.push=true \
+                  -Dquarkus.container-image.registry=${IMAGE_REGISTRY} \
+                  -Dquarkus.container-image.group=${IMAGE_GROUP} \
+                  -Dquarkus.container-image.name=${IMAGE_NAME} \
+                  -Dquarkus.container-image.tag=${IMAGE_TAG} \
+                  -Dquarkus.container-image.additional-tags=${SHORT_SHA} \
+                  -Dquarkus.jib.base-jvm-image=quay.io/hyperfoil/horreum-base:latest
+
+                echo "Build and push completed successfully"
+                echo "${IMAGE_REGISTRY}/${IMAGE_GROUP}/${IMAGE_NAME}:${IMAGE_TAG}" > $(results.IMAGE_URL.path)
+
+            - name: verify-image
+              image: gcr.io/go-containerregistry/crane:latest
+              env:
+                - name: DOCKER_CONFIG
+                  value: $(workspaces.dockerconfig.path)
+              script: |
+                #!/bin/sh
+                set -ex
+
+                IMAGE_REGISTRY="$(params.image-registry)"
+                IMAGE_GROUP="$(params.image-group)"
+                IMAGE_NAME="$(params.image-name)"
+                IMAGE_TAG="$(params.image-tag)"
+
+                # 验证镜像是否成功推送
+                crane manifest "${IMAGE_REGISTRY}/${IMAGE_GROUP}/${IMAGE_NAME}:${IMAGE_TAG}" || {
+                  echo "ERROR: Image not found in registry"
+                  exit 1
+                }
+
+                echo "Image verified: ${IMAGE_REGISTRY}/${IMAGE_GROUP}/${IMAGE_NAME}:${IMAGE_TAG}"
+
+        params:
+          - name: image-registry
+            value: $(params.image-registry)
+          - name: image-group
+            value: $(params.image-group)
+          - name: image-name
+            value: $(params.image-name)
+          - name: image-tag
+            value: $(params.image-tag)
+          - name: revision
+            value: $(params.revision)
+        workspaces:
+          - name: source
+            workspace: source
+          - name: maven-cache
+            workspace: maven-cache
+          - name: dockerconfig
+            workspace: dockerconfig
+
+  params:
+    - name: repo-url
+      value: "{{ repo_url }}"
+    - name: revision
+      value: "{{ revision }}"
+    - name: image-registry
+      value: "build-harbor.alauda.cn"
+    - name: image-group
+      value: "devops"
+    - name: image-name
+      value: "horreum"
+    - name: image-tag
+      value: "{{ source_branch }}"
+
+  workspaces:
+    - name: source
+      volumeClaimTemplate:
+        spec:
+          accessModes:
+            - ReadWriteMany
+          resources:
+            requests:
+              storage: 2Gi
+    - name: maven-cache
+      persistentVolumeClaim:
+        claimName: maven-cache
+    - name: dockerconfig
+      secret:
+        secretName: build-harbor.kauto.docfj
