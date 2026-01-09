@@ -96,7 +96,7 @@ spec:
         mvn clean package -DskipTests -DskipITs \
           -pl horreum-backend -am \
           -Dquarkus.package.jar.type=fast-jar \
-          -Dquarkus.quinoa.enabled=true
+          -Dquarkus.quinoa=true
 
         echo "Maven build completed"
         ls -la horreum-backend/target/quarkus-app/
