@@ -141,7 +141,7 @@ spec:
         requests:
           cpu: "2"
           memory: 4Gi
-    - pipelineTaskName: build-push
+    - pipelineTaskName: build-image
       computeResources:
         limits:
           cpu: "4"
