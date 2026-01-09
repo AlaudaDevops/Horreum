@@ -1,0 +1,129 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: horreum
+  namespace: horreum
+  labels:
+    app: horreum
+    app.kubernetes.io/name: horreum
+    app.kubernetes.io/component: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: horreum
+  template:
+    metadata:
+      labels:
+        app: horreum
+    spec:
+      initContainers:
+        # 等待 PostgreSQL 就绪
+        - name: wait-for-postgres
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              echo "Waiting for PostgreSQL..."
+              until nc -z postgres-service 5432; do
+                echo "PostgreSQL is not ready - sleeping"
+                sleep 5
+              done
+              echo "PostgreSQL is ready!"
+        # 等待 Artemis 就绪
+        - name: wait-for-artemis
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              echo "Waiting for Artemis..."
+              until nc -z artemis-service 5672; do
+                echo "Artemis is not ready - sleeping"
+                sleep 5
+              done
+              echo "Artemis is ready!"
+      containers:
+        - name: horreum
+          # 使用内部 Harbor 镜像 (PAC 流水线构建)
+          image: build-harbor.alauda.cn/devops/horreum:local-dev-scripts
+          ports:
+            - containerPort: 8080
+              name: http
+          envFrom:
+            - configMapRef:
+                name: horreum-config
+          env:
+            # Secret 环境变量
+            - name: HORREUM_BOOTSTRAP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: horreum-secret
+                  key: HORREUM_BOOTSTRAP_PASSWORD
+            - name: QUARKUS_DATASOURCE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: horreum-secret
+                  key: QUARKUS_DATASOURCE_USERNAME
+            - name: QUARKUS_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: horreum-secret
+                  key: QUARKUS_DATASOURCE_PASSWORD
+            - name: QUARKUS_DATASOURCE_MIGRATION_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: horreum-secret
+                  key: QUARKUS_DATASOURCE_MIGRATION_USERNAME
+            - name: QUARKUS_DATASOURCE_MIGRATION_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: horreum-secret
+                  key: QUARKUS_DATASOURCE_MIGRATION_PASSWORD
+            - name: AMQP_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: artemis-secret
+                  key: AMQ_USER
+            - name: AMQP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: artemis-secret
+                  key: AMQ_PASSWORD
+            - name: HORREUM_DB_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: HORREUM_DB_SECRET
+          resources:
+            requests:
+              memory: "1Gi"
+              cpu: "500m"
+            limits:
+              memory: "4Gi"
+              cpu: "2000m"
+          livenessProbe:
+            httpGet:
+              path: /q/health/live
+              port: 8080
+            initialDelaySeconds: 120
+            periodSeconds: 30
+            timeoutSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /q/health/ready
+              port: 8080
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            timeoutSeconds: 5
+          startupProbe:
+            httpGet:
+              path: /q/health/started
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 30
+      # 如果使用私有仓库，取消注释以下配置
+      # imagePullSecrets:
+      #   - name: harbor-regcred
