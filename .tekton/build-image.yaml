@@ -78,8 +78,8 @@ spec:
         #!/bin/bash
         set -ex
 
-        # 设置 HOME 目录
-        export HOME=/root
+        # 设置 HOME 目录 (使用 /tmp 确保可写)
+        export HOME=/tmp
 
         # 配置 Git 安全目录 (解决 dubious ownership 错误)
         git config --global --add safe.directory /workspace/source
