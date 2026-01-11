@@ -36,17 +36,22 @@ echo "mvn clean 完成"
 echo ""
 echo "[步骤 3/4] 执行构建命令..."
 
+# 定义 Maven 本地仓库路径（与 CI 保持一致的做法）
+MAVEN_LOCAL_REPO="$HOME/.m2/repository"
+
 echo ""
 echo "--- 3.1 构建并安装 horreum-api (包含 OpenAPI 代码生成) ---"
 mvn package install:install -DskipTests \
   -pl horreum-api \
-  -am
+  -am \
+  -Dmaven.repo.local="$MAVEN_LOCAL_REPO"
 
 echo ""
 echo "--- 3.2 安装 dev-services 及其父 POM ---"
 mvn jar:jar install:install -DskipTests \
   -pl infra/horreum-dev-services/runtime \
-  -am
+  -am \
+  -Dmaven.repo.local="$MAVEN_LOCAL_REPO"
 
 echo ""
 echo "--- 3.3 构建 backend (启用 Quinoa 前端打包) ---"
@@ -54,7 +59,8 @@ mvn package -DskipTests -DskipITs \
   -pl horreum-backend \
   -Dquarkus.package.jar.type=fast-jar \
   -Dquarkus.quinoa=true \
-  -Dquarkus.container-image.build=false
+  -Dquarkus.container-image.build=false \
+  -Dmaven.repo.local="$MAVEN_LOCAL_REPO"
 
 # 4. 验证构建结果
 echo ""

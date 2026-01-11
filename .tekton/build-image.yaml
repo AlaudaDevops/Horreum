@@ -78,8 +78,9 @@ spec:
         #!/bin/bash
         set -ex
 
-        # 设置 HOME 目录 (使用 /tmp 确保可写)
+        # 设置 HOME 目录和 Maven 本地仓库
         export HOME=/tmp
+        export MAVEN_OPTS="-Dmaven.repo.local=/tmp/.m2/repository"
 
         # 创建 Maven 本地仓库目录
         mkdir -p /tmp/.m2/repository
@@ -90,19 +91,22 @@ spec:
         # 1. 构建并安装 horreum-api (需要 package 阶段生成 OpenAPI 和 TypeScript 代码)
         mvn package install:install -DskipTests \
           -pl horreum-api \
-          -am
+          -am \
+          -Dmaven.repo.local=/tmp/.m2/repository
 
         # 2. 安装 dev-services 及其父 POM (仅用于 build ordering，不需要编译)
         mvn jar:jar install:install -DskipTests \
           -pl infra/horreum-dev-services/runtime \
-          -am
+          -am \
+          -Dmaven.repo.local=/tmp/.m2/repository
 
         # 3. 构建 backend (启用 Quinoa 打包前端，禁用 JIB 镜像构建)
         mvn package -DskipTests -DskipITs \
           -pl horreum-backend \
           -Dquarkus.package.jar.type=fast-jar \
           -Dquarkus.quinoa=true \
-          -Dquarkus.container-image.build=false
+          -Dquarkus.container-image.build=false \
+          -Dmaven.repo.local=/tmp/.m2/repository
 
         echo "Maven build completed"
         ls -la horreum-backend/target/quarkus-app/
