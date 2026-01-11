@@ -37,8 +37,8 @@ echo ""
 echo "[步骤 3/4] 执行构建命令..."
 
 echo ""
-echo "--- 3.1 编译并安装 horreum-api ---"
-mvn compile jar:jar install:install -DskipTests \
+echo "--- 3.1 构建并安装 horreum-api (包含 OpenAPI 代码生成) ---"
+mvn package install:install -DskipTests \
   -pl horreum-api \
   -am
 
@@ -49,11 +49,11 @@ mvn jar:jar install:install -DskipTests \
   -am
 
 echo ""
-echo "--- 3.3 构建 backend ---"
+echo "--- 3.3 构建 backend (启用 Quinoa 前端打包) ---"
 mvn package -DskipTests -DskipITs \
   -pl horreum-backend \
   -Dquarkus.package.jar.type=fast-jar \
-  -Dquarkus.quinoa=false \
+  -Dquarkus.quinoa=true \
   -Dquarkus.container-image.build=false
 
 # 4. 验证构建结果

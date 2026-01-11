@@ -87,8 +87,8 @@ spec:
         # 配置 Git 安全目录 (解决 dubious ownership 错误)
         git config --global --add safe.directory /workspace/source
 
-        # 1. 编译并安装 horreum-api (必须先编译，否则 JAR 为空)
-        mvn compile jar:jar install:install -DskipTests \
+        # 1. 构建并安装 horreum-api (需要 package 阶段生成 OpenAPI 和 TypeScript 代码)
+        mvn package install:install -DskipTests \
           -pl horreum-api \
           -am
 
