@@ -81,12 +81,11 @@ spec:
         # 设置 HOME 目录
         export HOME=/root
 
-        # 1. 安装依赖模块 (父POM + API + dev-services runtime)
-        #    -Dquarkus.extension.skip=true 跳过扩展描述符验证
-        mvn install -DskipTests -DskipITs \
+        # 1. 安装依赖模块
+        #    使用 jar:jar install:install 跳过 Quarkus 扩展插件验证
+        mvn jar:jar install:install -DskipTests \
           -pl horreum-api,infra/horreum-dev-services/runtime \
-          -am \
-          -Dquarkus.extension.skip=true
+          -am
 
         # 2. 构建 backend (启用 Quinoa 打包前端，禁用 JIB 镜像构建)
         mvn package -DskipTests -DskipITs \
