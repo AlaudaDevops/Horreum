@@ -84,13 +84,16 @@ spec:
         # 配置 Git 安全目录 (解决 dubious ownership 错误)
         git config --global --add safe.directory /workspace/source
 
-        # 1. 安装依赖模块
-        #    使用 jar:jar install:install 跳过 Quarkus 扩展插件验证
-        mvn jar:jar install:install -DskipTests \
-          -pl horreum-api,infra/horreum-dev-services/runtime \
+        # 1. 编译并安装 horreum-api (必须先编译，否则 JAR 为空)
+        mvn compile jar:jar install:install -DskipTests \
+          -pl horreum-api \
           -am
 
-        # 2. 构建 backend (启用 Quinoa 打包前端，禁用 JIB 镜像构建)
+        # 2. 安装 dev-services (仅用于 build ordering，不需要编译)
+        mvn jar:jar install:install -DskipTests \
+          -pl infra/horreum-dev-services/runtime
+
+        # 3. 构建 backend (启用 Quinoa 打包前端，禁用 JIB 镜像构建)
         mvn package -DskipTests -DskipITs \
           -pl horreum-backend \
           -Dquarkus.package.jar.type=fast-jar \
