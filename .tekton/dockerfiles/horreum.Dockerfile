@@ -13,6 +13,9 @@ EXPOSE 8080
 
 USER 185
 
+# 设置工作目录为 /deployments（horreum.sh 脚本依赖此目录）
+WORKDIR /deployments
+
 ENV JAVA_OPTS="-Dquarkus.http.host=0.0.0.0 -Djava.util.logging.manager=org.jboss.logmanager.LogManager"
 
 # 使用项目自带的启动脚本
