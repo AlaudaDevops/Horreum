@@ -81,14 +81,18 @@ spec:
         # 设置 HOME 目录
         export HOME=/root
 
-        # 先安装 API 模块
-        mvn clean install -DskipTests -DskipITs -pl horreum-api
+        # 1. 安装父 POM
+        mvn clean install -DskipTests -DskipITs -N
 
-        # 构建 backend (启用 Quinoa 打包前端)
-        mvn clean package -DskipTests -DskipITs \
+        # 2. 安装 API 模块
+        mvn install -DskipTests -DskipITs -pl horreum-api
+
+        # 3. 构建 backend (启用 Quinoa 打包前端，禁用 JIB 镜像构建)
+        mvn package -DskipTests -DskipITs \
           -pl horreum-backend \
           -Dquarkus.package.jar.type=fast-jar \
-          -Dquarkus.quinoa=true
+          -Dquarkus.quinoa=true \
+          -Dquarkus.container-image.build=false
 
         echo "Maven build completed"
         ls -la horreum-backend/target/quarkus-app/
