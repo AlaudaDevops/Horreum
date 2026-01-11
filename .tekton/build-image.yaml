@@ -52,8 +52,7 @@ spec:
 
     - name: tags
       value:
-        - "latest"
-        - "{{ source_branch }}"
+        - "{{ source_branch }}-{{ build_number }}"
 
     - name: dockerfile-path
       value: .tekton/dockerfiles/horreum.Dockerfile
