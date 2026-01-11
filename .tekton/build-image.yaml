@@ -81,6 +81,9 @@ spec:
         # 设置 HOME 目录
         export HOME=/root
 
+        # 配置 Git 安全目录 (解决 dubious ownership 错误)
+        git config --global --add safe.directory /workspace/source
+
         # 1. 安装依赖模块
         #    使用 jar:jar install:install 跳过 Quarkus 扩展插件验证
         mvn jar:jar install:install -DskipTests \
