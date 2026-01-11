@@ -23,6 +23,9 @@ echo "[步骤 1/4] 清理本地 Maven 缓存..."
 rm -rf ~/.m2/repository/io/hyperfoil/tools/
 echo "已清理 ~/.m2/repository/io/hyperfoil/tools/"
 
+# 确保 Maven 本地仓库目录存在（与 CI 环境一致）
+mkdir -p ~/.m2/repository
+
 # 2. 清理项目构建目录
 echo ""
 echo "[步骤 2/4] 清理项目构建目录..."

@@ -81,6 +81,9 @@ spec:
         # 设置 HOME 目录 (使用 /tmp 确保可写)
         export HOME=/tmp
 
+        # 创建 Maven 本地仓库目录
+        mkdir -p /tmp/.m2/repository
+
         # 配置 Git 安全目录 (解决 dubious ownership 错误)
         git config --global --add safe.directory /workspace/source
 
