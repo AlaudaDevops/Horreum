@@ -99,12 +99,14 @@ spec:
           -am \
           -Dmaven.repo.local=/tmp/.m2/repository
 
-        # 3. 构建 backend (启用 Quinoa 打包前端，禁用 JIB 镜像构建)
+        # 3. 构建 backend (启用 Quinoa 打包前端，禁用 JIB 镜像构建，禁用 OIDC/Keycloak)
         mvn package -DskipTests -DskipITs \
           -pl horreum-backend \
           -Dquarkus.package.jar.type=fast-jar \
           -Dquarkus.quinoa=true \
           -Dquarkus.container-image.build=false \
+          -Dquarkus.oidc.enabled=false \
+          -Dquarkus.keycloak.admin-client.enabled=false \
           -Dmaven.repo.local=/tmp/.m2/repository
 
         echo "Maven build completed"
