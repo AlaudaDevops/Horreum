@@ -56,8 +56,12 @@ public class SecurityBootstrap {
     @Inject
     Instance<UserBackEnd> backend;
 
-    void onStart(@Observes StartupEvent event, Keycloak keycloak) {
-        if (keycloakURL.isPresent() && performRolesMigration()) {
+    @Inject
+    Instance<Keycloak> keycloakInstance;
+
+    void onStart(@Observes StartupEvent event) {
+        if (keycloakURL.isPresent() && keycloakInstance.isResolvable() && performRolesMigration()) {
+            Keycloak keycloak = keycloakInstance.get();
             Log.info("Perform roles migration from keycloak...");
             for (UserRepresentation kcUser : keycloak.realm(realm).users().list(0, Integer.MAX_VALUE)) {
                 performUserMigration(kcUser,

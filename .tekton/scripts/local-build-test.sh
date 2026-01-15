@@ -1,0 +1,82 @@
+#!/bin/bash
+#
+# 本地构建测试脚本
+# 用于验证 .tekton/build-image.yaml 中的 Maven 命令在干净环境下能否成功
+#
+# 使用方法: ./local-build-test.sh
+#
+
+set -e
+
+echo "=========================================="
+echo "Horreum 本地构建测试"
+echo "模拟 CI 干净环境"
+echo "=========================================="
+
+cd "$(dirname "$0")/../.."
+PROJECT_ROOT=$(pwd)
+echo "项目根目录: $PROJECT_ROOT"
+
+# 1. 清理本地 Maven 缓存（模拟 CI 干净环境）
+echo ""
+echo "[步骤 1/4] 清理本地 Maven 缓存..."
+rm -rf ~/.m2/repository/io/hyperfoil/tools/
+echo "已清理 ~/.m2/repository/io/hyperfoil/tools/"
+
+# 确保 Maven 本地仓库目录存在（与 CI 环境一致）
+mkdir -p ~/.m2/repository
+
+# 2. 清理项目构建目录
+echo ""
+echo "[步骤 2/4] 清理项目构建目录..."
+mvn clean -q
+echo "mvn clean 完成"
+
+# 3. 执行与流水线相同的构建命令
+echo ""
+echo "[步骤 3/4] 执行构建命令..."
+
+# 定义 Maven 本地仓库路径（与 CI 保持一致的做法）
+MAVEN_LOCAL_REPO="$HOME/.m2/repository"
+
+echo ""
+echo "--- 3.1 构建并安装 horreum-api (包含 OpenAPI 代码生成) ---"
+mvn package install:install -DskipTests \
+  -pl horreum-api \
+  -am \
+  -Dmaven.repo.local="$MAVEN_LOCAL_REPO"
+
+echo ""
+echo "--- 3.2 安装 dev-services 及其父 POM ---"
+mvn jar:jar install:install -DskipTests \
+  -pl infra/horreum-dev-services/runtime \
+  -am \
+  -Dmaven.repo.local="$MAVEN_LOCAL_REPO"
+
+echo ""
+echo "--- 3.3 构建 backend (启用 Quinoa 前端打包) ---"
+mvn package -DskipTests -DskipITs \
+  -pl horreum-backend \
+  -Dquarkus.package.jar.type=fast-jar \
+  -Dquarkus.quinoa=true \
+  -Dquarkus.container-image.build=false \
+  -Dmaven.repo.local="$MAVEN_LOCAL_REPO"
+
+# 4. 验证构建结果
+echo ""
+echo "[步骤 4/4] 验证构建结果..."
+
+if [ -d "$PROJECT_ROOT/horreum-backend/target/quarkus-app" ]; then
+    echo "✅ 构建成功！"
+    echo ""
+    echo "构建产物:"
+    ls -la "$PROJECT_ROOT/horreum-backend/target/quarkus-app/"
+    echo ""
+    echo "=========================================="
+    echo "本地验证通过，可以提交到远程仓库"
+    echo "=========================================="
+    exit 0
+else
+    echo "❌ 构建失败：quarkus-app 目录不存在"
+    exit 1
+fi

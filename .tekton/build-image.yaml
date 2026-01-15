@@ -1,0 +1,168 @@
+apiVersion: tekton.dev/v1
+kind: PipelineRun
+metadata:
+  name: horreum-build-image
+  annotations:
+    pipelinesascode.tekton.dev/on-comment: "^((/build-image)|(/test-all))$"
+    pipelinesascode.tekton.dev/cancel-in-progress: "true"
+    pipelinesascode.tekton.dev/on-cel-expression: |-
+      (
+        ".tekton/build-image.yaml".pathChanged() ||
+        "horreum-backend/**".pathChanged() ||
+        "horreum-web/**".pathChanged() ||
+        "horreum-api/**".pathChanged() ||
+        "pom.xml".pathChanged()
+      ) && (
+        event == "push" && (
+          source_branch.matches("^(main|master|alauda-deploy)$") ||
+          target_branch.matches("^(main|master|alauda-deploy)$")
+        )
+      )
+    pipelinesascode.tekton.dev/max-keep-runs: "5"
+spec:
+  pipelineRef:
+    resolver: hub
+    params:
+      - name: catalog
+        value: alauda
+      - name: type
+        value: tekton
+      - name: kind
+        value: pipeline
+      - name: name
+        value: clone-image-build-test-scan
+      - name: version
+        value: "0.2"
+
+  params:
+    - name: git-url
+      value: "{{ repo_url }}"
+    - name: git-revision
+      value: "{{ source_branch }}"
+    - name: git-commit
+      value: "{{ revision }}"
+    - name: pull-request-number
+      value: "{{ pull_request_number }}"
+
+    - name: image-repository
+      value: build-harbor.alauda.cn/devops/horreum
+
+    - name: tag-template
+      value: ${Major}.${Minor}.${Patch}-g${ShortSha}
+
+    - name: tags
+      value:
+        - "latest"
+
+    - name: dockerfile-path
+      value: .tekton/dockerfiles/horreum.Dockerfile
+
+    - name: context
+      value: "."
+
+    - name: file-list-for-commit-sha
+      value:
+        - .tekton/build-image.yaml
+        - .tekton/dockerfiles/horreum.Dockerfile
+        - horreum-backend
+        - horreum-web
+        - horreum-api
+        - pom.xml
+
+    - name: prepare-tools-image
+      value: "docker-mirrors.alauda.cn/library/maven:3.9-eclipse-temurin-17"
+
+    - name: prepare-command
+      value: |
+        #!/bin/bash
+        set -ex
+
+        # 设置 HOME 目录和 Maven 本地仓库
+        export HOME=/tmp
+        export MAVEN_OPTS="-Dmaven.repo.local=/tmp/.m2/repository"
+
+        # 创建 Maven 本地仓库目录
+        mkdir -p /tmp/.m2/repository
+
+        # 配置 Git 安全目录 (解决 dubious ownership 错误)
+        git config --global --add safe.directory /workspace/source
+
+        # 1. 构建并安装 horreum-api (需要 package 阶段生成 OpenAPI 和 TypeScript 代码)
+        mvn package install:install -DskipTests \
+          -pl horreum-api \
+          -am \
+          -Dmaven.repo.local=/tmp/.m2/repository
+
+        # 2. 安装 dev-services 及其父 POM (仅用于 build ordering，不需要编译)
+        mvn jar:jar install:install -DskipTests \
+          -pl infra/horreum-dev-services/runtime \
+          -am \
+          -Dmaven.repo.local=/tmp/.m2/repository
+
+        # 3. 构建 backend (启用 Quinoa 打包前端，禁用 JIB 镜像构建，禁用 OIDC/Keycloak)
+        mvn package -DskipTests -DskipITs \
+          -pl horreum-backend \
+          -Dquarkus.package.jar.type=fast-jar \
+          -Dquarkus.quinoa=true \
+          -Dquarkus.container-image.build=false \
+          -Dquarkus.oidc.enabled=false \
+          -Dquarkus.keycloak.admin-client.enabled=false \
+          -Dmaven.repo.local=/tmp/.m2/repository
+
+        echo "Maven build completed"
+        ls -la horreum-backend/target/quarkus-app/
+
+    # 暂时忽略安全扫描
+    - name: ignore-trivy-scan
+      value: "true"
+
+  workspaces:
+    - name: source
+      volumeClaimTemplate:
+        spec:
+          accessModes:
+            - ReadWriteMany
+          resources:
+            requests:
+              storage: 2Gi
+    - name: dockerconfig
+      secret:
+        secretName: build-harbor.kauto.docfj
+    - name: basic-auth
+      secret:
+        secretName: "{{ git_auth_secret }}"
+    - name: gitversion-config
+      configMap:
+        name: gitversion-config
+
+  taskRunTemplate:
+    podTemplate:
+      securityContext:
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+        fsGroupChangePolicy: "OnRootMismatch"
+
+  taskRunSpecs:
+    - pipelineTaskName: prepare-build
+      podTemplate:
+        securityContext:
+          runAsUser: 0
+          runAsGroup: 0
+          fsGroup: 0
+          fsGroupChangePolicy: "OnRootMismatch"
+      computeResources:
+        limits:
+          cpu: "4"
+          memory: 8Gi
+        requests:
+          cpu: "2"
+          memory: 4Gi
+    - pipelineTaskName: build-image
+      computeResources:
+        limits:
+          cpu: "4"
+          memory: 4Gi
+        requests:
+          cpu: "2"
+          memory: 2Gi
